@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxury Real Estate | Catálogo</title>
+    <style>
+        :root {
+            --gold: #d4af37;
+            --gold-dark: #aa841e;
+            --black: #0a0a0a;
+            --dark-grey: #1a1a1a;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', serif;
+            background-color: var(--black);
+            color: var(--white);
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto 40px;
+            border-bottom: 1px solid var(--gold);
+            padding-bottom: 20px;
+        }
+
+        h1 { color: var(--gold); letter-spacing: 2px; text-transform: uppercase; font-size: 1.2rem; margin: 0; }
+
+        .btn-add {
+            background: linear-gradient(45deg, var(--gold-dark), var(--gold));
+            color: var(--black);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        #lista-imoveis {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--dark-grey);
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .card:hover { border-color: var(--gold); }
+
+        .card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .card-content { padding: 15px; border-top: 2px solid var(--gold); }
+        .card-content h3 { margin: 0; color: var(--gold); font-size: 1.1rem; }
+        .card-content p { color: #bbb; margin: 8px 0 0; font-size: 0.9rem; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center; align-items: center;
+            z-index: 2000;
+            padding: 10px;
+        }
+
+        .modal-content {
+            background: var(--dark-grey);
+            padding: 25px;
+            border: 1px solid var(--gold);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        input {
+            width: 100%; padding: 12px; margin: 8px 0;
+            background: #222; border: 1px solid #444; color: white;
+            box-sizing: border-box;
+        }
+
+        .btn-action {
+            width: 100%; padding: 14px; margin: 8px 0;
+            border: 1px solid var(--gold); background: transparent;
+            color: var(--gold); cursor: pointer; font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-action:hover { background: var(--gold); color: var(--black); }
+
+        #carousel-view { display: none; flex-direction: column; align-items: center; width: 100%; }
+        #carousel-img { max-width: 100%; max-height: 60vh; border: 1px solid var(--gold); }
+        .carousel-nav { display: flex; gap: 15px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Luxury Estate</h1>
+    <button class="btn-add" onclick="abrirModal('modal-add')">Novo</button>
+</header>
+
+<div id="lista-imoveis"></div>
+
+<div id="modal-add" class="modal">
+    <div class="modal-content">
+        <h2 style="color:var(--gold); margin-top:0;">Novo Imóvel</h2>
+        <input type="text" id="cidade" placeholder="Cidade">
+        <input type="number" id="quartos" placeholder="Nº de Quartos">
+        <input type="number" id="unidades" placeholder="Unidades Disponíveis">
+        <label style="font-size:0.8rem; color:gray;">Fotos (Máx 10):</label>
+        <input type="file" id="uploadFotos" accept="image/*" multiple>
+        <input type="text" id="linkVideo" placeholder="URL do Vídeo (Instagram)">
+        <button class="btn-action" id="btn-publicar" onclick="salvarImovel()">Publicar</button>
+        <button onclick="fecharModal('modal-add')" style="background:none; border:none; color:grey; cursor:pointer; width:100%; margin-top:10px;">Cancelar</button>
+    </div>
+</div>
+
+<div id="modal-escolha" class="modal">
+    <div class="modal-content" style="text-align: center;">
+        <h2 style="color:var(--gold)">Escolha uma opção</h2>
+        <button class="btn-action" id="btn-ver-video">Ver Vídeo</button>
+        <button class="btn-action" id="btn-ver-fotos">Ver Fotos</button>
+        <button onclick="fecharModal('modal-escolha')" style="color:grey; background:none; border:none; cursor:pointer">Voltar</button>
+    </div>
+</div>
+
+<div id="modal-carousel" class="modal">
+    <div id="carousel-view">
+        <img id="carousel-img" src="">
+        <div class="carousel-nav">
+            <button class="btn-add" onclick="mudarFoto(-1)">❮</button>
+            <button class="btn-add" onclick="mudarFoto(1)">❯</button>
+        </div>
+        <button onclick="fecharModal('modal-carousel')" style="color:white; margin-top:20px; background:none; border:1px solid white; padding:8px; cursor:pointer">Fechar</button>
+    </div>
+</div>
+
+<script>
+    let imoveis = JSON.parse(localStorage.getItem('luxuryImoveis')) || [];
+    let fotosTemp = [];
+    let imovelAtual = null;
+    let fotoIndice = 0;
+
+    // Função para diminuir o tamanho da imagem (Essencial para não travar o Publicar)
+    async function comprimirImagem(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const width = 600; // Reduz largura para 600px
+                    const scaleFactor = width / img.width;
+                    canvas.width = width;
+                    canvas.height = img.height * scaleFactor;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade 70%
+                };
+            };
+        });
+    }
+
+    document.getElementById('uploadFotos').addEventListener('change', async function(e) {
+        const btn = document.getElementById('btn-publicar');
+        btn.disabled = true;
+        btn.innerText = "Processando fotos...";
+        
+        fotosTemp = [];
+        const files = Array.from(e.target.files).slice(0, 10);
+        for (let file of files) {
+            const imgReduzida = await comprimirImagem(file);
+            fotosTemp.push(imgReduzida);
+        }
+        
+        btn.disabled = false;
+        btn.innerText = "Publicar";
+    });
+
+    function abrirModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function fecharModal(id) { 
+        document.getElementById(id).style.display = 'none'; 
+        if(id === 'modal-carousel') document.getElementById('carousel-view').style.display = 'none';
+    }
+
+    function salvarImovel() {
+        const cidade = document.getElementById('cidade').value;
+        const video = document.getElementById('linkVideo').value;
+
+        if(!cidade || fotosTemp.length === 0 || !video) {
+            alert("Preencha todos os campos e adicione fotos.");
+            return;
+        }
+
+        const novo = {
+            cidade: cidade,
+            quartos: document.getElementById('quartos').value,
+            unidades: document.getElementById('unidades').value,
+            fotos: fotosTemp,
+            video: video
+        };
+
+        try {
+            imoveis.push(novo);
+            localStorage.setItem('luxuryImoveis', JSON.stringify(imoveis));
+            renderizar();
+            fecharModal('modal-add');
+            limparForm();
+        } catch (e) {
+            alert("Memória cheia! Tente adicionar menos fotos ou fotos menores.");
+        }
+    }
+
+    function prepararEscolha(index) {
+        imovelAtual = imoveis[index];
+        abrirModal('modal-escolha');
+        document.getElementById('btn-ver-video').onclick = () => window.open(imovelAtual.video, '_blank');
+        document.getElementById('btn-ver-fotos').onclick = () => abrirCarrossel();
+    }
+
+    function abrirCarrossel() {
+        fecharModal('modal-escolha');
+        fotoIndice = 0;
+        document.getElementById('carousel-view').style.display = 'flex';
+        atualizarFoto();
+        abrirModal('modal-carousel');
+    }
+
+    function mudarFoto(dir) {
+        fotoIndice = (fotoIndice + dir + imovelAtual.fotos.length) % imovelAtual.fotos.length;
+        atualizarFoto();
+    }
+
+    function atualizarFoto() {
+        document.getElementById('carousel-img').src = imovelAtual.fotos[fotoIndice];
+    }
+
+    function limparForm() {
+        document.getElementById('cidade').value = '';
+        document.getElementById('quartos').value = '';
+        document.getElementById('unidades').value = '';
+        document.getElementById('uploadFotos').value = '';
+        document.getElementById('linkVideo').value = '';
+        fotosTemp = [];
+    }
+
+    function renderizar() {
+        const grid = document.getElementById('lista-imoveis');
+        grid.innerHTML = imoveis.map((im, i) => `
+            <div class="card">
+                <img src="${im.fotos[0]}" onclick="prepararEscolha(${i})">
+                <div class="card-content">
+                    <h3>${im.cidade}</h3>
+                    <p>${im.quartos} Quartos | ${im.unidades} Unidades</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderizar();
+</script>
+</body>
+</html>
